@@ -5,6 +5,7 @@ terraform {
       version = "5.62.0"
     }
   }
+
   backend "s3" {
     bucket         = "terraform-diana-isioma888"
     key            = "terraform/terraform.tfstate"
@@ -12,7 +13,6 @@ terraform {
     dynamodb_table = "DianaIsioma"
     encrypt        = true
   }
-
 }
 
 provider "aws" {

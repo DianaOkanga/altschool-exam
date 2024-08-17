@@ -2,17 +2,13 @@ module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "20.23.0"
 
-  cluster_name                   = "${var.project_name}-cluster"
-  cluster_version                = "1.30"
-  cluster_endpoint_public_access = true
+  cluster_name    = "${var.project_name}-cluster"
+  cluster_version = "1.30"
 
-  enable_irsa = true
+  cluster_endpoint_public_access = true
 
   cluster_addons = {
     coredns = {
-      most_recent = true
-    }
-    eks-pod-identity-agent = {
       most_recent = true
     }
     kube-proxy = {
@@ -30,20 +26,19 @@ module "eks" {
   eks_managed_node_group_defaults = {
     ami_type       = "AL2_x86_64"
     instance_types = ["m5.large"]
-
-    attach_cluster_primary_security_group = true
   }
 
   eks_managed_node_groups = {
     altschool-exam-cluster = {
       instance_types = ["t3.large"]
-
-      min_size     = 1
-      max_size     = 2
-      desired_size = 1
-      cpacity_type = "SPOT"
+      min_size       = 2
+      max_size       = 5
+      desired_size   = 2
+      capacity_type  = "SPOT"
     }
   }
+
+  enable_cluster_creator_admin_permissions = true
 
   tags = {
     environment = "development"
