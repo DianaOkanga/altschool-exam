@@ -1,0 +1,91 @@
+name: Setup EKS Cluster and Deploy Sock Shop
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Terraform/**'
+      - 'kube-manifests/**'
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION}}
+  CLUSTER_NAME: ${{ secrets.CLUSTER_NAME }}
+  TF_WORKING_DIR: ./Terraform
+
+jobs:
+  setup-eks-cluster:
+    if: contains(github.event.head_commit.modified, 'terraform/')
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v3
+      
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Create terraform.tfvars file
+      run: |
+        echo "${{ secrets.TERRAFORMTFVARS }}" > ${{ env.TF_WORKING_DIR }}/terraform.tfvars
+
+    - name: Initialize Terraform
+      run: terraform init
+      working-directory: ${{ env.TF_WORKING_DIR }}
+
+    - name: Format Terraform
+      run: terraform fmt
+      working-directory: ${{ env.TF_WORKING_DIR }}
+
+    - name: Validate Terraform Code
+      run: terraform validate
+      working-directory: ${{ env.TF_WORKING_DIR }}
+
+    - name: Plan Terraform
+      run: terraform plan
+      working-directory: ${{ env.TF_WORKING_DIR }}
+
+    - name: Apply Terraform
+      run: terraform apply -auto-approve
+      working-directory: ${{ env.TF_WORKING_DIR }}
+
+  deploy-sockshop:
+    if: contains(github.event.head_commit.modified, 'kube-manifests/')
+    runs-on: ubuntu-latest
+    needs: setup-eks-cluster
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Install kubectl
+      uses: azure/setup-kubectl@v4
+      with:
+        version: 'v1.30.0'
+      id: install
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Set up kubectl using awscli
+      run: |
+        aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ secrets.CLUSTER_NAME }}
+
+    - name: Deploy Sock Shop Microservices
+      run: |
+        kubectl apply -f ./kube-manifests
+
+    - name: Verify Deployment
+      run: |
+        kubectl get pods --all-namespaces
